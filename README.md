@@ -28,6 +28,7 @@ Write words, draw patterns, and make your profile stand out — automatically.
 - [Prerequisites](#-prerequisites)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
+- [CLI Usage](#-cli-usage)
 - [All Modes & Usage](#-all-modes--usage)
   - [Mode 1 — Random Commits](#mode-1--random-commits)
   - [Mode 2 — Text Art](#mode-2--text-art)
@@ -181,6 +182,57 @@ Then run:
 node index.js
 ```
 
+Or use the CLI flags directly:
+
+```bash
+node index.js random --count 100 --intensity random
+node index.js text --text "HELLO" --week 5 --level heavy --dry-run
+node index.js pattern --pattern wave
+node index.js custom --grid-file ./grid.json
+```
+
+`npm start` still runs the default random mode, and any flags can be passed after `--`:
+
+```bash
+npm start -- random --count 100 --dry-run
+```
+
+---
+
+## 🖥️ CLI Usage
+
+The script now accepts terminal flags instead of requiring edits to the bottom of `index.js`.
+
+### Modes
+
+- `random` - random commits across the past year
+- `text` - draw a word or phrase
+- `pattern` - draw a built-in pattern
+- `custom` - draw a 7x52 grid from a JSON file
+
+### Common flags
+
+| Flag | Description |
+|------|-------------|
+| `--count`, `-n` | Total commits for random mode |
+| `--intensity` | Random mode intensity: `random`, `light`, `medium`, `heavy`, or a number |
+| `--text` | Text to render in text mode |
+| `--week` | Start week for text mode |
+| `--level` | Text/pattern intensity: `light`, `medium`, or `heavy` |
+| `--pattern` | Pattern name: `checkerboard`, `wave`, or `stripes` |
+| `--grid-file` | Path to a JSON file containing a 7x52 grid |
+| `--dry-run` | Preview without committing |
+| `--help`, `-h` | Show the built-in usage help |
+
+### Examples
+
+```bash
+node index.js random --count 200 --intensity heavy
+node index.js random --count 50 --intensity random --dry-run
+node index.js text --text "CODE" --week 10 --level medium
+node index.js pattern --pattern checkerboard --dry-run
+```
+
 ---
 
 ## 🎛️ All Modes & Usage
@@ -197,6 +249,10 @@ makeRandomCommits(200);
 
 // Dry run first to see what dates would be used
 makeRandomCommits(200, true);
+
+// Mix random intensity levels for each commit, or force a fixed intensity
+makeRandomCommits(200, false, "random");
+makeRandomCommits(200, false, "heavy");
 ```
 
 **Parameters:**
@@ -205,6 +261,7 @@ makeRandomCommits(200, true);
 |-------|------|---------|-------------|
 | `n` | number | — | Total number of commits to make |
 | `dryRun` | boolean | `false` | If `true`, only prints dates — no commits made |
+| `intensity` | string or number | `"random"` | `random`, `light`, `medium`, `heavy`, or a custom commit count per cell |
 
 ---
 
@@ -424,7 +481,7 @@ Contributions are warmly welcomed! Here's how to get involved:
 
 - [ ] Add more letters/digits to the `FONT` object
 - [ ] Add more built-in patterns (spiral, cross, border)
-- [ ] CLI argument parsing (`node index.js --text HELLO --week 5`)
+- [x] CLI argument parsing (`node index.js text --text HELLO --week 5`)
 - [ ] Interactive mode with prompts
 - [ ] Week-position calculator / planning helper
 - [ ] Digit completion (currently only 0–3 are defined)

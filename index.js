@@ -18,6 +18,9 @@ import jsonfile from "jsonfile";
 import moment from "moment";
 import simpleGit from "simple-git";
 import random from "random";
+import { readFile } from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -55,6 +58,10 @@ const resolveIntensityCount = (intensity) => {
 
 const pickRandomIntensityLevel = () =>
   INTENSITY_LEVELS[Math.floor(Math.random() * INTENSITY_LEVELS.length)];
+
+const isMainModule =
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 
 // ─── Pixel Font (5×7 grid, each letter is a 5-column boolean array) ──────────
 // 1 = commit cell ON, 0 = OFF
@@ -662,27 +669,170 @@ export const makeCustomGrid = async (customGrid, dryRun = false) => {
   }
 };
 
+const parseNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const parseCliArgs = (argv) => {
+  const options = {
+    mode: "random",
+    count: 50,
+    dryRun: false,
+    intensity: "random",
+    level: "heavy",
+    text: "HELLO",
+    startWeek: 0,
+    pattern: "checkerboard",
+    gridFile: "",
+    help: false,
+  };
+
+  for (let index = 0; index < argv.length; index++) {
+    const token = argv[index];
+
+    switch (token) {
+      case "-h":
+      case "--help":
+        options.help = true;
+        break;
+      case "--mode":
+        options.mode = argv[++index] || options.mode;
+        break;
+      case "random":
+      case "text":
+      case "pattern":
+      case "custom":
+        options.mode = token;
+        break;
+      case "-n":
+      case "--count":
+        options.count = parseNumber(argv[++index], options.count);
+        break;
+      case "--dry-run":
+      case "--dryRun":
+        options.dryRun = true;
+        break;
+      case "--intensity":
+        options.intensity = argv[++index] || options.intensity;
+        break;
+      case "--level":
+        options.level = argv[++index] || options.level;
+        break;
+      case "--text":
+        options.text = argv[++index] || options.text;
+        options.mode = "text";
+        break;
+      case "--week":
+      case "--start-week":
+        options.startWeek = parseNumber(argv[++index], options.startWeek);
+        break;
+      case "--pattern":
+        options.pattern = argv[++index] || options.pattern;
+        options.mode = "pattern";
+        break;
+      case "--grid-file":
+        options.gridFile = argv[++index] || options.gridFile;
+        options.mode = "custom";
+        break;
+      default:
+        if (!token.startsWith("-") && options.mode === "random") {
+          options.count = parseNumber(token, options.count);
+        }
+        break;
+    }
+  }
+
+  return options;
+};
+
+const printUsage = () => {
+  console.log(`
+GitHub Graph Art CLI
+
+Usage:
+  node index.js [mode] [options]
+
+Modes:
+  random   Random commits across the past year
+  text     Draw a word or phrase
+  pattern  Draw a built-in pattern
+  custom   Draw a 7x52 grid from a JSON file
+
+Examples:
+  node index.js random --count 100
+  node index.js random --count 100 --intensity random
+  node index.js text --text "HELLO" --week 5 --level heavy --dry-run
+  node index.js pattern --pattern wave
+  node index.js custom --grid-file ./grid.json
+
+Flags:
+  --count, -n       Total random commits to make
+  --intensity       Random mode intensity: random | light | medium | heavy | number
+  --text            Text to render in text mode
+  --week            Start week for text mode
+  --level           Text/pattern intensity: light | medium | heavy
+  --pattern         checkerboard | wave | stripes
+  --grid-file       Path to a JSON file containing a 7x52 grid
+  --dry-run         Preview without committing
+  --help, -h        Show this help message
+`);
+};
+
+const loadCustomGrid = async (gridFile) => {
+  const filePath = path.resolve(process.cwd(), gridFile);
+  const contents = await readFile(filePath, "utf8");
+  return JSON.parse(contents);
+};
+
+const runCli = async () => {
+  const options = parseCliArgs(process.argv.slice(2));
+
+  if (options.help) {
+    printUsage();
+    return;
+  }
+
+  if (process.argv.length <= 2) {
+    await makeRandomCommits(50, false, "random");
+    return;
+  }
+
+  switch (options.mode) {
+    case "random":
+      await makeRandomCommits(options.count, options.dryRun, options.intensity);
+      break;
+    case "text":
+      await makeTextArt(
+        options.text,
+        options.startWeek,
+        options.level,
+        options.dryRun,
+      );
+      break;
+    case "pattern":
+      await makePattern(options.pattern, options.dryRun);
+      break;
+    case "custom": {
+      if (!options.gridFile) {
+        throw new Error("Missing --grid-file for custom mode.");
+      }
+
+      const customGrid = await loadCustomGrid(options.gridFile);
+      await makeCustomGrid(customGrid, options.dryRun);
+      break;
+    }
+    default:
+      throw new Error(
+        `Unknown mode "${options.mode}". Use --help to see available commands.`,
+      );
+  }
+};
+
 // ─── CLI Entry Point ──────────────────────────────────────────────────────────
-// Usage examples — uncomment whichever mode you want to run:
-
-// 1️⃣  100 random commits scattered across the year
-makeRandomCommits(50);
-
-// 2️⃣  Write "HELLO" starting at week 5 (dry-run first to preview)
-// makeTextArt("HELLO", 5, "heavy", true);
-
-// 3️⃣  Write "COOL" then "CODE" side by side (rough positions)
-// makeTextArt("COOL", 2, "heavy", true);
-// makeTextArt("CODE", 28, "heavy", true);
-
-// 4️⃣  Draw a wave pattern across the whole year
-// makePattern("wave", true);
-
-// 5️⃣  Checkerboard pattern
-// makePattern("checkerboard", true);
-
-// 5️⃣  Stripes pattern
-// makePattern("stripes", true);
-
-// 6️⃣  Custom heart — supply your own 7×52 grid
-// makeCustomGrid([ ... ]);
+if (isMainModule) {
+  runCli().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}
