@@ -39,6 +39,23 @@ const INTENSITY = {
   heavy: 15,
 };
 
+const INTENSITY_LEVELS = ["light", "medium", "heavy"];
+
+const resolveIntensityCount = (intensity) => {
+  if (typeof intensity === "number" && Number.isFinite(intensity)) {
+    return Math.max(1, Math.floor(intensity));
+  }
+
+  if (typeof intensity === "string") {
+    return INTENSITY[intensity] ?? INTENSITY.heavy;
+  }
+
+  return INTENSITY.heavy;
+};
+
+const pickRandomIntensityLevel = () =>
+  INTENSITY_LEVELS[Math.floor(Math.random() * INTENSITY_LEVELS.length)];
+
 // ─── Pixel Font (5×7 grid, each letter is a 5-column boolean array) ──────────
 // 1 = commit cell ON, 0 = OFF
 // Each character is represented as an array of 7 rows × 5 cols
@@ -494,18 +511,28 @@ const textToGrid = (text, spacing = 1) => {
  *
  * @param {number} n          - total number of commits
  * @param {boolean} dryRun    - if true, only print dates without committing
+ * @param {string|number} intensity - "random" or a fixed intensity level/count
  */
-export const makeRandomCommits = async (n, dryRun = false) => {
+export const makeRandomCommits = async (
+  n,
+  dryRun = false,
+  intensity = "random",
+) => {
   console.log(`\n🎲 Making ${n} random commits across the past year…\n`);
 
   for (let i = n; i > 0; i--) {
     const week = random.int(0, 51);
     const day = random.int(0, 6);
     const date = cellToDate(week, day);
+    const chosenIntensity =
+      intensity === "random" ? pickRandomIntensityLevel() : intensity;
+    const commitCount = resolveIntensityCount(chosenIntensity);
 
-    console.log(`[${n - i + 1}/${n}] ${date}`);
+    console.log(
+      `[${n - i + 1}/${n}] ${date} | intensity: ${chosenIntensity} (${commitCount})`,
+    );
 
-    if (!dryRun) await writeCommit(week, day);
+    if (!dryRun) await writeCellCommits(week, day, commitCount);
   }
 
   if (!dryRun) {
@@ -639,7 +666,7 @@ export const makeCustomGrid = async (customGrid, dryRun = false) => {
 // Usage examples — uncomment whichever mode you want to run:
 
 // 1️⃣  100 random commits scattered across the year
-makeRandomCommits(100);
+makeRandomCommits(50);
 
 // 2️⃣  Write "HELLO" starting at week 5 (dry-run first to preview)
 // makeTextArt("HELLO", 5, "heavy", true);
